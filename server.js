@@ -2,14 +2,14 @@
 // 1. Importação de Pacotes
 // ######
 import express from "express"; // Importa o framework Express
-import pkg from "pg";
+import { Pool } from 'pg';
 import dotenv from "dotenv";
 
 // ######
 // 2. Configurações do Servidor
 // ######
 dotenv.config();         // Carrega e processa o arquivo .env
-const { Pool } = pkg;    // Utiliza a Classe Pool do Postgres
+   // Utiliza a Classe Pool do Postgres
 
 const app = express();
 const port = 3000;
