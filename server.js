@@ -47,16 +47,185 @@ app.get("/", async (req, res) => {
   }
 
   res.json({
-    descricao: "API para Questões de Prova",
-    autor: "Vinicius Araujo Matos", // Substituído pelo seu nome
+    descricao: "API para Questões de Prova e Usuários",
+    autor: "Vinicius Araujo Matos", 
     statusBD: dbStatus,
   });
 });
 
+// Rota de Teste Simples (Manter aqui para diagnóstico)
+app.get("/teste", (req, res) => {
+  res.send("Teste de Roteamento OK!");
+});
+
+
+// =======================================================
+// ROTAS CRUD PARA USUÁRIOS (ROTA CONTORNADA)
+// =======================================================
+
+// Rota GET /todosusuarios - Retorna todos os usuários (Rota contornada)
+app.get("/todosusuarios", async (req, res) => {
+  console.log("Rota GET /usuarios solicitada");
+  
+    const db = conectarBD();
+
+	try {
+        const resultado = await db.query("SELECT id, nome, email, criado_em FROM usuarios"); 
+        const dados = resultado.rows; 
+        res.json(dados);
+    } catch (e) {
+        console.error("Erro ao buscar usuários:", e); 
+        res.status(500).json({
+            erro: "Erro interno do servidor",
+            mensagem: "Não foi possível buscar os usuários",
+        });
+    }
+});
+
+
+// Rota GET /usuarios/:id - Retorna um único usuário por ID
+app.get("/usuarios/:id", async (req, res) => {
+  console.log("Rota GET /usuarios/:id solicitada");
+
+  try {
+    const id = req.params.id;
+    const db = conectarBD();
+    const consulta = "SELECT id, nome, email, criado_em FROM usuarios WHERE id = $1"; 
+    const resultado = await db.query(consulta, [id]);
+    const dados = resultado.rows;
+
+    if (dados.length === 0) {
+      return res.status(404).json({ mensagem: "Usuário não encontrado" });
+    }
+
+    res.json(dados[0]);
+  } catch (e) {
+    console.error("Erro ao buscar usuário:", e);
+    res.status(500).json({
+      erro: "Erro interno do servidor"
+    });
+  }
+});
+
+
+// Rota POST /usuarios - Insere um novo usuário
+app.post("/usuarios", async (req, res) => {
+  console.log("Rota POST /usuarios solicitada"); 
+
+  try {
+    const data = req.body;
+    // Validação dos dados
+    if (!data.nome || !data.email) {
+      return res.status(400).json({
+        erro: "Dados inválidos",
+        mensagem: "Os campos nome e email são obrigatórios.",
+      });
+    }
+
+    const db = conectarBD(); 
+    const consulta = "INSERT INTO usuarios (nome, email) VALUES ($1,$2) RETURNING id, nome, email, criado_em";
+    const valores = [data.nome, data.email]; 
+    const resultado = await db.query(consulta, valores);
+    
+    res.status(201).json({ 
+        mensagem: "Usuário criado com sucesso!", 
+        usuario: resultado.rows[0] 
+    });
+  } catch (e) {
+    console.error("Erro ao inserir usuário:", e);
+    res.status(500).json({
+      erro: "Erro interno do servidor"
+    });
+  }
+});
+
+
+// Rota PUT /usuarios/:id - Atualiza um usuário
+app.put("/usuarios/:id", async (req, res) => {
+  console.log("Rota PUT /usuarios/:id solicitada"); 
+
+  try {
+    const id = req.params.id; 
+    const db = conectarBD(); 
+    
+    // Busca o usuário existente
+    let consulta = "SELECT nome, email FROM usuarios WHERE id = $1"; 
+    let resultado = await db.query(consulta, [id]);
+    let usuarioExistente = resultado.rows; 
+
+    if (usuarioExistente.length === 0) {
+      return res.status(404).json({ mensagem: "Usuário não encontrado" }); 
+    }
+
+    const data = req.body; 
+    const u = usuarioExistente[0]; 
+
+    // Usa o valor enviado ou mantém o valor atual
+    const nome = data.nome || u.nome;
+    const email = data.email || u.email;
+
+    // Atualiza o usuário
+    consulta ="UPDATE usuarios SET nome = $1, email = $2 WHERE id = $3 RETURNING id, nome, email, criado_em";
+    resultado = await db.query(consulta, [
+      nome,
+      email,
+      id,
+    ]);
+
+    res.status(200).json({ 
+        mensagem: "Usuário atualizado com sucesso!",
+        usuario: resultado.rows[0]
+    }); 
+  } catch (e) {
+    console.error("Erro ao atualizar usuário:", e); 
+    res.status(500).json({
+      erro: "Erro interno do servidor",
+    });
+  }
+});
+
+
+// Rota DELETE /usuarios/:id - Exclui um usuário
+app.delete("/usuarios/:id", async (req, res) => {
+  console.log("Rota DELETE /usuarios/:id solicitada"); 
+
+  try {
+    const id = req.params.id;
+    const db = conectarBD();
+
+    // Busca o usuário antes de deletar
+    const consultaBusca = "SELECT id, nome, email FROM usuarios WHERE id = $1";
+    const resultadoBusca = await db.query(consultaBusca, [id]);
+    const usuarioDeletado = resultadoBusca.rows[0];
+
+    if (!usuarioDeletado) {
+      return res.status(404).json({ mensagem: "Usuário não encontrado" });
+    }
+
+    const consultaDelete = "DELETE FROM usuarios WHERE id = $1"; 
+    await db.query(consultaDelete, [id]);
+
+    res.status(200).json({ 
+        mensagem: "Usuário excluído com sucesso!!",
+        usuario_excluido: usuarioDeletado
+    });
+  } catch (e) {
+    console.error("Erro ao excluir usuário:", e); 
+    res.status(500).json({
+      erro: "Erro interno do servidor"
+    });
+  }
+});
+
+
+// =======================================================
+// ROTAS CRUD PARA QUESTÕES
+// =======================================================
+
 // Rota GET /questoes - Retorna todas as questões
 app.get("/questoes", async (req, res) => {
-	console.log("Rota GET /questoes solicitada");
-	
+  console.log("Rota GET /questoes solicitada");
+  
     const db = conectarBD();
 
 	try {
@@ -113,7 +282,7 @@ app.post("/questoes", async (req, res) => {
     }
 
     const db = conectarBD(); 
-    const consulta = "INSERT INTO questoes (enunciado,disciplina,tema,nivel) VALUES ($1,$2,$3,$4) RETURNING *"; // Adicionado RETURNING * para retornar a questão inserida
+    const consulta = "INSERT INTO questoes (enunciado,disciplina,tema,nivel) VALUES ($1,$2,$3,$4) RETURNING *";
     const questao = [data.enunciado, data.disciplina, data.tema, data.nivel]; 
     const resultado = await db.query(consulta, questao);
     
